@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(cd /tmp)",
+      "Bash(curl -sL -m 20 https://tracker.shadowfax.in/)",
+      "WebFetch(domain:www.shadowfax.in)",
+      "Read(//tmp/**)",
+      "Bash(node capture2.mjs)",
+      "Bash(node -e ' *)",
+      "Bash(node rebuild.mjs)"
+    ]
+  }
+}
