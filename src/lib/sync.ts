@@ -1,4 +1,4 @@
-import { db, openShipments, getShipment, type Shipment } from "./db";
+import { batch, openShipments, getShipment, run, type Shipment } from "./db";
 import { getCourier } from "./couriers";
 import { register, getTrackInfo, hasApiKey, type ParsedTrack } from "./track17";
 import { trackShadowfax } from "./shadowfax";
@@ -17,23 +17,23 @@ function chunk<T>(arr: T[], n: number): T[][] {
   return out;
 }
 
-function applyTrack(s: Shipment, t: ParsedTrack) {
-  const d = db();
-  d.prepare(
-    `UPDATE shipments SET status = ?, status_detail = ?, last_event_at = ?,
-       last_synced_at = datetime('now'), last_sync_error = NULL WHERE id = ?`,
-  ).run(t.status, t.detail, t.lastEventAt, s.id);
-  d.prepare("DELETE FROM events WHERE shipment_id = ?").run(s.id);
-  const ins = d.prepare(
-    "INSERT INTO events (shipment_id, time, description, location) VALUES (?, ?, ?, ?)",
-  );
-  for (const e of t.events) ins.run(s.id, e.time, e.description, e.location);
+async function applyTrack(s: Shipment, t: ParsedTrack) {
+  await batch([
+    {
+      sql: `UPDATE shipments SET status = ?, status_detail = ?, last_event_at = ?,
+         last_synced_at = datetime('now'), last_sync_error = NULL WHERE id = ?`,
+      args: [t.status, t.detail, t.lastEventAt, s.id],
+    },
+    { sql: "DELETE FROM events WHERE shipment_id = ?", args: [s.id] },
+    ...t.events.map((e) => ({
+      sql: "INSERT INTO events (shipment_id, time, description, location) VALUES (?, ?, ?, ?)",
+      args: [s.id, e.time, e.description, e.location],
+    })),
+  ]);
 }
 
-function markError(s: Shipment, error: string) {
-  db()
-    .prepare("UPDATE shipments SET last_sync_error = ?, last_synced_at = datetime('now') WHERE id = ?")
-    .run(error, s.id);
+async function markError(s: Shipment, error: string) {
+  await run("UPDATE shipments SET last_sync_error = ?, last_synced_at = datetime('now') WHERE id = ?", [error, s.id]);
 }
 
 export type SyncResult = {
@@ -52,11 +52,11 @@ async function syncShadowfax(list: Shipment[], result: SyncResult) {
     await Promise.all(
       group.map(async (s) => {
         try {
-          applyTrack(s, await trackShadowfax(s.awb));
+          await applyTrack(s, await trackShadowfax(s.awb));
           result.updated++;
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
-          markError(s, msg);
+          await markError(s, msg);
           result.failed++;
           result.errors.push(`${s.awb}: ${msg}`);
         }
@@ -83,7 +83,7 @@ async function sync17(list: Shipment[], result: SyncResult) {
         if (!/regist/i.test(r.error.message)) {
           const s = unregistered.find((u) => u.awb === r.number);
           if (s) {
-            markError(s, r.error.message);
+            await markError(s, r.error.message);
             result.failed++;
             result.errors.push(`${r.number}: ${r.error.message}`);
           }
@@ -96,13 +96,13 @@ async function sync17(list: Shipment[], result: SyncResult) {
       if (o.ok) {
         const s = byKey.get(`${o.track.carrier}:${o.track.number}`);
         if (s) {
-          applyTrack(s, o.track);
+          await applyTrack(s, o.track);
           result.updated++;
         }
       } else {
         const s = batch.find((b) => b.awb === o.number);
         if (s) {
-          markError(s, o.error);
+          await markError(s, o.error);
           result.failed++;
           result.errors.push(`${o.number}: ${o.error}`);
         }
@@ -132,7 +132,7 @@ async function syncTrackCourier(list: Shipment[], result: SyncResult, force: boo
   for (let i = 0; i < todo.length; i++) {
     const s = todo[i];
     try {
-      applyTrack(s, await trackViaTrackCourier(s.courier, s.awb));
+      await applyTrack(s, await trackViaTrackCourier(s.courier, s.awb));
       result.updated++;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -141,7 +141,7 @@ async function syncTrackCourier(list: Shipment[], result: SyncResult, force: boo
         result.deferred += todo.length - i; // stop; don't mark parcels as broken
         return;
       }
-      markError(s, msg);
+      await markError(s, msg);
       result.failed++;
       result.errors.push(`${s.awb}: ${msg}`);
     }
@@ -182,11 +182,11 @@ export async function syncShipments(
 }
 
 export async function syncOne(userId: number, id: number): Promise<SyncResult> {
-  const s = getShipment(userId, id);
+  const s = await getShipment(userId, id);
   if (!s) return { updated: 0, failed: 0, skipped: 0, deferred: 0, errors: ["Shipment not found"] };
   return syncShipments([s], { force: true });
 }
 
 export async function syncAllOpen(userId: number): Promise<SyncResult> {
-  return syncShipments(openShipments(userId));
+  return syncShipments(await openShipments(userId));
 }

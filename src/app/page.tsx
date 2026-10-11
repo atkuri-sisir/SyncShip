@@ -42,12 +42,12 @@ export default async function Dashboard({ searchParams }: { searchParams: SP }) 
   const group = isGroupKey(groupParam) ? groupParam : "";
   const msg = one(sp.msg);
 
-  let rows = listShipments(user.id, { q, courier, status });
+  let rows = await listShipments(user.id, { q, courier, status });
   if (attention) rows = rows.filter(needsAttention);
   if (group) rows = rows.filter((s) => groupOf(s.status) === group);
 
-  const counts = statusCounts(user.id);
-  const all = listShipments(user.id, {});
+  const counts = await statusCounts(user.id);
+  const all = await listShipments(user.id, {});
   const attentionCount = all.filter(needsAttention).length;
   const stats = computeStats(all);
   const hasManualParcels = all.some(

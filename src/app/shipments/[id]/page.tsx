@@ -27,10 +27,10 @@ export default async function ShipmentPage({
   const sp = await searchParams;
   const msg = Array.isArray(sp.msg) ? sp.msg[0] : sp.msg;
   const id = Number(idStr);
-  const s = Number.isInteger(id) ? getShipment(user.id, id) : undefined;
+  const s = Number.isInteger(id) ? await getShipment(user.id, id) : undefined;
   if (!s) notFound();
 
-  const events = getEvents(s.id);
+  const events = await getEvents(s.id);
   const courier = getCourier(s.courier);
   const official = officialTrackUrl(s.courier, s.awb);
   const quick = quickCheckUrl(s.courier, s.awb);

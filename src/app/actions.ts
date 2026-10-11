@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { db, getShipment, STATUSES, type Shipment, type Status } from "@/lib/db";
+import { getShipment, run, STATUSES, type Shipment, type Status } from "@/lib/db";
 import { COURIERS, getCourier } from "@/lib/couriers";
 import { requireUser } from "@/lib/auth";
 import { syncAllOpen, syncOne, syncShipments, type SyncResult } from "@/lib/sync";
@@ -34,29 +34,28 @@ function hasOperatorKey(): boolean {
   return Boolean(process.env.TRACKCOURIER_KEY || process.env.TRACK17_KEY);
 }
 
-function insertShipment(
+async function insertShipment(
   userId: number,
   courier: string,
   awb: string,
   label: string,
   invoice: string,
   date: string,
-): { result: "added" | "duplicate" | "invalid"; id?: number } {
+): Promise<{ result: "added" | "duplicate" | "invalid"; id?: number }> {
   if (!getCourier(courier) || !awb) return { result: "invalid" };
-  const r = db()
-    .prepare(
-      `INSERT OR IGNORE INTO shipments (user_id, awb, courier, hospital, invoice_no, dispatch_date)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    )
-    .run(userId, awb, courier, label, invoice || null, date || today());
+  const r = await run(
+    `INSERT OR IGNORE INTO shipments (user_id, awb, courier, hospital, invoice_no, dispatch_date)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [userId, awb, courier, label, invoice || null, date || today()],
+  );
   return r.changes
-    ? { result: "added", id: Number(r.lastInsertRowid) }
+    ? { result: "added", id: r.lastId }
     : { result: "duplicate" };
 }
 
 /** Fetch live status right after a parcel is added; never blocks adding if it fails. */
 async function autoSync(userId: number, ids: number[], bulk = false) {
-  const list = ids.map((id) => getShipment(userId, id)).filter((s): s is Shipment => Boolean(s));
+  const list = (await Promise.all(ids.map((id) => getShipment(userId, id)))).filter((s): s is Shipment => Boolean(s));
   // Shadowfax is free and unlimited. Any other automatic route (an operator-configured
   // key with a small quota) is only used for single adds, never for a bulk import.
   const pick = bulk ? list.filter((s) => getCourier(s.courier)?.auto) : list.filter((s) => getCourier(s.courier)?.auto || hasOperatorKey());
@@ -69,7 +68,7 @@ async function autoSync(userId: number, ids: number[], bulk = false) {
 
 export async function addShipment(formData: FormData) {
   const user = await requireUser();
-  const { result: res, id } = insertShipment(
+  const { result: res, id } = await insertShipment(
     user.id,
     str(formData.get("courier")),
     str(formData.get("awb")),
@@ -79,7 +78,7 @@ export async function addShipment(formData: FormData) {
   );
   if (id) await autoSync(user.id, [id]);
   revalidatePath("/");
-  const added = id ? getShipment(user.id, id) : undefined;
+  const added = id ? await getShipment(user.id, id) : undefined;
   const msg =
     res === "added"
       ? added && added.status !== "Pending"
@@ -103,7 +102,7 @@ export async function importShipments(formData: FormData) {
     const [courierName = "", awb = "", label = "", invoice = "", date = ""] = line
       .split(",")
       .map((c) => c.trim());
-    const { result, id } = insertShipment(user.id, courierFromName(courierName), awb, label, invoice, date);
+    const { result, id } = await insertShipment(user.id, courierFromName(courierName), awb, label, invoice, date);
     counts[result]++;
     if (id) newIds.push(id);
   }
@@ -158,12 +157,11 @@ export async function setStatusAction(formData: FormData) {
   const back = rawBack.startsWith("/") && !rawBack.startsWith("//") ? rawBack : "/";
   if (STATUSES.includes(status)) {
     // manual = 1 stops auto-sync from overwriting a hand-set status
-    db()
-      .prepare(
-        `UPDATE shipments SET status = ?, manual = ?, status_detail = 'Updated manually',
-           last_event_at = datetime('now') WHERE id = ? AND user_id = ?`,
-      )
-      .run(status, status === "Delivered" || status === "Returned" ? 0 : 1, id, user.id);
+    await run(
+      `UPDATE shipments SET status = ?, manual = ?, status_detail = 'Updated manually',
+         last_event_at = datetime('now') WHERE id = ? AND user_id = ?`,
+      [status, status === "Delivered" || status === "Returned" ? 0 : 1, id, user.id],
+    );
   }
   revalidatePath("/");
   revalidatePath("/shipments/[id]", "page");
@@ -173,7 +171,7 @@ export async function setStatusAction(formData: FormData) {
 export async function resumeAutoAction(formData: FormData) {
   const user = await requireUser();
   const id = Number(str(formData.get("id")));
-  db().prepare("UPDATE shipments SET manual = 0 WHERE id = ? AND user_id = ?").run(id, user.id);
+  await run("UPDATE shipments SET manual = 0 WHERE id = ? AND user_id = ?", [id, user.id]);
   revalidatePath("/");
   redirect(`/shipments/${id}`);
 }
@@ -181,9 +179,7 @@ export async function resumeAutoAction(formData: FormData) {
 export async function saveNotesAction(formData: FormData) {
   const user = await requireUser();
   const id = Number(str(formData.get("id")));
-  db()
-    .prepare("UPDATE shipments SET notes = ? WHERE id = ? AND user_id = ?")
-    .run(str(formData.get("notes")) || null, id, user.id);
+  await run("UPDATE shipments SET notes = ? WHERE id = ? AND user_id = ?", [str(formData.get("notes")) || null, id, user.id]);
   revalidatePath("/shipments/[id]", "page");
   redirect(`/shipments/${id}`);
 }
@@ -191,7 +187,7 @@ export async function saveNotesAction(formData: FormData) {
 export async function deleteShipmentAction(formData: FormData) {
   const user = await requireUser();
   const id = Number(str(formData.get("id")));
-  db().prepare("DELETE FROM shipments WHERE id = ? AND user_id = ?").run(id, user.id);
+  await run("DELETE FROM shipments WHERE id = ? AND user_id = ?", [id, user.id]);
   revalidatePath("/");
   redirect("/?msg=Parcel+deleted");
 }

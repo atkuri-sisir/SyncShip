@@ -26,9 +26,9 @@ export function supportsTrackCourier(courierKey: string): boolean {
 
 export type TcUsage = { used: number; quota: number; plan?: string };
 
-export function getTcUsage(): TcUsage | null {
+export async function getTcUsage(): Promise<TcUsage | null> {
   try {
-    const raw = getKv("trackcourier_usage");
+    const raw = await getKv("trackcourier_usage");
     return raw ? (JSON.parse(raw) as TcUsage) : null;
   } catch {
     return null;
@@ -119,7 +119,7 @@ export async function trackViaTrackCourier(courierKey: string, awb: string): Pro
   }
 
   if (json.usage?.used !== undefined && json.usage.quota !== undefined) {
-    setKv(
+    await setKv(
       "trackcourier_usage",
       JSON.stringify({ used: json.usage.used, quota: json.usage.quota, plan: json.usage.plan }),
     );

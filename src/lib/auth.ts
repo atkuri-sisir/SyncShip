@@ -2,7 +2,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { db, type User } from "./db";
+import { get, run, type User } from "./db";
 
 const COOKIE = "syncship_session";
 const SESSION_DAYS = 30;
@@ -26,11 +26,13 @@ const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 export async function createSession(userId: number) {
   const token = randomBytes(32).toString("base64url");
   const expires = new Date(Date.now() + SESSION_DAYS * 86_400_000);
-  db()
-    .prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)")
-    .run(sha256(token), userId, expires.toISOString());
+  await run("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)", [
+    sha256(token),
+    userId,
+    expires.toISOString(),
+  ]);
   // Tidy up expired sessions now and then
-  db().prepare("DELETE FROM sessions WHERE expires_at < ?").run(new Date().toISOString());
+  await run("DELETE FROM sessions WHERE expires_at < ?", [new Date().toISOString()]);
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -43,7 +45,7 @@ export async function createSession(userId: number) {
 export async function destroySession() {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
-  if (token) db().prepare("DELETE FROM sessions WHERE token_hash = ?").run(sha256(token));
+  if (token) await run("DELETE FROM sessions WHERE token_hash = ?", [sha256(token)]);
   jar.delete(COOKIE);
 }
 
@@ -51,12 +53,11 @@ export async function destroySession() {
 export const getCurrentUser = cache(async (): Promise<Pick<User, "id" | "email" | "name"> | null> => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
-  const row = db()
-    .prepare(
-      `SELECT u.id, u.email, u.name FROM sessions s JOIN users u ON u.id = s.user_id
-       WHERE s.token_hash = ? AND s.expires_at > ?`,
-    )
-    .get(sha256(token), new Date().toISOString()) as Pick<User, "id" | "email" | "name"> | undefined;
+  const row = await get<Pick<User, "id" | "email" | "name">>(
+    `SELECT u.id, u.email, u.name FROM sessions s JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash = ? AND s.expires_at > ?`,
+    [sha256(token), new Date().toISOString()],
+  );
   return row ?? null;
 });
 
