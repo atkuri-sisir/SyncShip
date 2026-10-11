@@ -43,7 +43,7 @@ export default async function ShipmentPage({
         <div className="rounded-lg border border-teal-200 bg-teal-50 px-4 py-2.5 text-sm text-teal-900">{msg}</div>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="panel p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="font-mono text-2xl font-semibold">{s.awb}</div>
@@ -68,7 +68,7 @@ export default async function ShipmentPage({
         <div className="mt-4 flex flex-wrap gap-2 text-sm">
           <form action={syncOneAction}>
             <input type="hidden" name="id" value={s.id} />
-            <button className="rounded-md border border-teal-600 px-3 py-1.5 font-medium text-teal-700 hover:bg-teal-50">
+            <button className="btn-outline px-3 py-1.5">
               ↻ Refresh status
             </button>
           </form>
@@ -77,7 +77,7 @@ export default async function ShipmentPage({
               href={official}
               target="_blank"
               rel="noreferrer"
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+              className="rounded-xl border border-slate-300 bg-white/70 px-3 py-1.5 text-slate-700 transition hover:-translate-y-px hover:bg-white"
             >
               Open on {courier?.name} site ↗
             </a>
@@ -88,7 +88,7 @@ export default async function ShipmentPage({
               target="_blank"
               rel="noreferrer"
               title="Third-party page with your number pre-filled. It shows ads and may have no data for some parcels."
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+              className="rounded-xl border border-slate-300 bg-white/70 px-3 py-1.5 text-slate-700 transition hover:-translate-y-px hover:bg-white"
             >
               Quick check (TrackCourier.io) ↗
             </a>
@@ -97,7 +97,7 @@ export default async function ShipmentPage({
       </div>
 
       <div className="grid gap-5 md:grid-cols-3">
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:col-span-2">
+        <section className="panel p-5 md:col-span-2">
           <h2 className="mb-3 font-semibold">Tracking history</h2>
           {events.length === 0 ? (
             <p className="text-sm text-slate-500">
@@ -120,17 +120,17 @@ export default async function ShipmentPage({
         </section>
 
         <div className="space-y-5">
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="panel p-5">
             <h2 className="mb-3 font-semibold">Set status by hand</h2>
             <form action={setStatusAction} className="space-y-2 text-sm">
               <input type="hidden" name="id" value={s.id} />
               <input type="hidden" name="back" value={`/shipments/${s.id}`} />
-              <select name="status" defaultValue={s.status} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2">
+              <select name="status" defaultValue={s.status} className="w-full rounded-xl border border-slate-300/80 bg-white/85 px-3 py-2 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-200/60">
                 {STATUSES.map((st) => (
                   <option key={st} value={st}>{st}</option>
                 ))}
               </select>
-              <button className="w-full rounded-md bg-slate-800 px-3 py-2 font-medium text-white hover:bg-slate-900">
+              <button className="w-full btn-primary px-3 py-2">
                 Update
               </button>
             </form>
@@ -143,7 +143,7 @@ export default async function ShipmentPage({
             )}
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="panel p-5">
             <h2 className="mb-3 font-semibold">Notes</h2>
             <form action={saveNotesAction} className="space-y-2 text-sm">
               <input type="hidden" name="id" value={s.id} />
@@ -151,9 +151,9 @@ export default async function ShipmentPage({
                 name="notes"
                 rows={3}
                 defaultValue={s.notes ?? ""}
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2"
+                className="w-full rounded-xl border border-slate-300/80 bg-white/85 px-3 py-2 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-200/60"
               />
-              <button className="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50">Save notes</button>
+              <button className="rounded-xl border border-slate-300 bg-white/70 px-3 py-1.5 transition hover:-translate-y-px hover:bg-white">Save notes</button>
             </form>
           </section>
 

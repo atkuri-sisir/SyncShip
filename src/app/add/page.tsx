@@ -3,7 +3,7 @@ import { COURIERS } from "@/lib/couriers";
 import { requireUser } from "@/lib/auth";
 import { addShipment, importShipments } from "../actions";
 
-const input = "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
+const input = "w-full rounded-xl border border-slate-300/80 bg-white/85 px-3 py-2 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-200/60 text-sm";
 
 export default async function AddPage() {
   await connection();
@@ -11,7 +11,7 @@ export default async function AddPage() {
   const today = new Date().toISOString().slice(0, 10);
   return (
     <div className="grid gap-6 md:grid-cols-2">
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="panel p-5">
         <h2 className="mb-4 text-lg font-semibold">Add a parcel</h2>
         <form action={addShipment} className="space-y-3">
           <label className="block text-sm">
@@ -43,7 +43,7 @@ export default async function AddPage() {
               <input name="date" type="date" defaultValue={today} className={input} />
             </label>
           </div>
-          <button className="rounded-md bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700">
+          <button className="btn-primary px-4 py-2 text-sm">
             Save parcel
           </button>
         </form>
@@ -52,7 +52,7 @@ export default async function AddPage() {
         </p>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="panel p-5">
         <h2 className="mb-1 text-lg font-semibold">Add many at once</h2>
         <p className="mb-3 text-sm text-slate-500">
           Paste one parcel per line, or copy rows from Excel:
@@ -67,7 +67,7 @@ export default async function AddPage() {
             placeholder={"Delhivery, 31959715305366, Phone cover\nSpeed Post, EE123456789IN, Birthday gift, ORD-55, 2026-10-09"}
             className={`${input} font-mono`}
           />
-          <button className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900">
+          <button className="btn-primary px-4 py-2 text-sm">
             Import
           </button>
         </form>

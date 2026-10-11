@@ -6,10 +6,25 @@ import { requireUser } from "@/lib/auth";
 import { daysSince, fmtDate, fmtDateTime, needsAttention } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DashboardCharts } from "@/components/Charts";
+import { Hero } from "@/components/Hero";
 import { GROUPS, computeStats, groupOf, isGroupKey } from "@/lib/stats";
 import { setStatusAction, syncAllAction } from "./actions";
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
+
+function TileIcon({ name }: { name: "transit" | "pin" | "check" | "alert" }) {
+  const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.4, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+  switch (name) {
+    case "transit":
+      return (<svg {...common}><path d="M3 12h14" /><path d="m12 6 6 6-6 6" /></svg>);
+    case "pin":
+      return (<svg {...common}><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.4" /></svg>);
+    case "check":
+      return (<svg {...common}><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>);
+    default:
+      return (<svg {...common}><path d="M12 8v5" /><path d="M12 17.2v.1" /><path d="M10.3 3.9 2.6 17.2A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.8L13.7 3.9a2 2 0 0 0-3.4 0z" /></svg>);
+  }
+}
 
 function one(v: string | string[] | undefined): string {
   return Array.isArray(v) ? (v[0] ?? "") : (v ?? "");
@@ -40,37 +55,56 @@ export default async function Dashboard({ searchParams }: { searchParams: SP }) 
   );
 
   const tiles = [
-    { label: "In transit", n: counts["In Transit"] ?? 0, href: "/?status=In+Transit", color: "var(--g-transit)" },
-    { label: "Out for delivery", n: counts["Out for Delivery"] ?? 0, href: "/?status=Out+for+Delivery", color: "var(--g-ofd)" },
-    { label: "Delivered", n: counts["Delivered"] ?? 0, href: "/?status=Delivered", color: "var(--g-delivered)" },
-    { label: "Needs attention", n: attentionCount, href: "/?attention=1", color: "var(--g-attention)" },
-  ];
+    { label: "In transit", n: counts["In Transit"] ?? 0, href: "/?status=In+Transit", color: "var(--g-transit)", icon: "transit" },
+    { label: "Out for delivery", n: counts["Out for Delivery"] ?? 0, href: "/?status=Out+for+Delivery", color: "var(--g-ofd)", icon: "pin" },
+    { label: "Delivered", n: counts["Delivered"] ?? 0, href: "/?status=Delivered", color: "var(--g-delivered)", icon: "check" },
+    { label: "Needs attention", n: attentionCount, href: "/?attention=1", color: "var(--g-attention)", icon: "alert" },
+  ] as const;
 
   return (
     <div className="space-y-6">
       {msg && (
-        <div className="rounded-lg border border-teal-200 bg-teal-50 px-4 py-2.5 text-sm text-teal-900">{msg}</div>
+        <div className="reveal rounded-2xl border border-teal-200 bg-teal-50/90 px-4 py-3 text-sm font-medium text-teal-900 shadow-sm">{msg}</div>
       )}
 
       {hasManualParcels && (
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600">
+        <div className="reveal panel px-4 py-3 text-sm text-slate-600">
           Shadowfax parcels update automatically. For other couriers, open a parcel, tap{" "}
           <b>Open on courier site</b>, then mark its status here (or use <b>Delivered</b> in the list).
         </div>
       )}
 
+      <Hero
+        name={user.name}
+        total={all.length}
+        onTheMove={(counts["In Transit"] ?? 0) + (counts["Out for Delivery"] ?? 0)}
+        needAttention={attentionCount}
+        delivered={counts["Delivered"] ?? 0}
+      />
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {tiles.map((t) => (
+        {tiles.map((t, i) => (
           <Link
             key={t.label}
             href={t.href}
-            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-teal-300"
+            style={{ "--d": i, "--c": t.color } as React.CSSProperties}
+            className="panel panel-hover pop group relative overflow-hidden p-4"
           >
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <span className="h-2.5 w-2.5 rounded-sm" style={{ background: t.color }} />
+            <span
+              aria-hidden
+              className="absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-[0.16] transition-transform duration-500 group-hover:scale-125"
+              style={{ background: t.color }}
+            />
+            <div className="relative flex items-center gap-2.5 text-sm font-medium text-slate-600">
+              <span
+                className="grid h-8 w-8 place-items-center rounded-xl text-white shadow-sm"
+                style={{ background: t.color }}
+              >
+                <TileIcon name={t.icon} />
+              </span>
               {t.label}
             </div>
-            <div className="mt-1 text-3xl font-semibold text-slate-900">{t.n}</div>
+            <div className="relative mt-3 font-display text-5xl font-extrabold leading-none text-slate-900">{t.n}</div>
           </Link>
         ))}
       </div>
@@ -83,15 +117,15 @@ export default async function Dashboard({ searchParams }: { searchParams: SP }) 
             name="q"
             defaultValue={q}
             placeholder="Search tracking no., hospital, invoice"
-            className="w-64 rounded-md border border-slate-300 bg-white px-3 py-2"
+            className="w-64 rounded-xl border border-slate-300/80 bg-white/85 px-3 py-2 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-200/60"
           />
-          <select name="courier" defaultValue={courier} className="rounded-md border border-slate-300 bg-white px-3 py-2">
+          <select name="courier" defaultValue={courier} className="rounded-xl border border-slate-300/80 bg-white/85 px-3 py-2 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-200/60">
             <option value="">All couriers</option>
             {COURIERS.map((c) => (
               <option key={c.key} value={c.key}>{c.name}</option>
             ))}
           </select>
-          <select name="status" defaultValue={status} className="rounded-md border border-slate-300 bg-white px-3 py-2">
+          <select name="status" defaultValue={status} className="rounded-xl border border-slate-300/80 bg-white/85 px-3 py-2 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-200/60">
             <option value="">All statuses</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>{s}</option>
@@ -103,7 +137,7 @@ export default async function Dashboard({ searchParams }: { searchParams: SP }) 
               Showing: {GROUPS.find((g) => g.key === group)?.label}
             </span>
           )}
-          <button className="rounded-md bg-slate-800 px-4 py-2 font-medium text-white hover:bg-slate-900">Filter</button>
+          <button className="btn-primary px-5 py-2">Filter</button>
           {(q || courier || status || attention || group) && (
             <Link href="/" className="px-2 py-2 text-slate-500 underline">Clear</Link>
           )}
@@ -112,14 +146,14 @@ export default async function Dashboard({ searchParams }: { searchParams: SP }) 
         <form action={syncAllAction} className="flex items-center gap-3 text-sm">
           <button
             title="Updates Shadowfax parcels automatically"
-            className="rounded-md border border-teal-600 px-4 py-2 font-medium text-teal-700 hover:bg-teal-50"
+            className="btn-outline px-4 py-2"
           >
             ↻ Refresh all
           </button>
         </form>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="panel reveal overflow-x-auto" style={{ "--d": 8 } as React.CSSProperties}>
         <table className="w-full text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
@@ -147,8 +181,8 @@ export default async function Dashboard({ searchParams }: { searchParams: SP }) 
                 </td>
               </tr>
             )}
-            {rows.map((s) => (
-              <tr key={s.id} className="hover:bg-slate-50">
+            {rows.map((s, idx) => (
+              <tr key={s.id} className="row-in" style={{ "--i": idx, "--row-c": GROUPS.find((g) => g.key === groupOf(s.status))?.color } as React.CSSProperties}>
                 <td className="px-4 py-3 font-mono">
                   <Link href={`/shipments/${s.id}`} className="text-teal-700 hover:underline">{s.awb}</Link>
                   {s.invoice_no && <div className="font-sans text-xs text-slate-500">Inv {s.invoice_no}</div>}

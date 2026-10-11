@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { signupAction } from "../auth-actions";
 
-const input = "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
+const input = "w-full rounded-xl border border-slate-300/80 bg-white/85 px-3 py-2 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-200/60 text-sm";
 
 export default async function SignupPage({
   searchParams,
@@ -17,8 +17,12 @@ export default async function SignupPage({
   const error = Array.isArray(sp.error) ? sp.error[0] : sp.error;
 
   return (
-    <div className="mx-auto max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h1 className="text-xl font-semibold">Create your account</h1>
+    <>
+      <div className="blob b1" aria-hidden />
+      <div className="blob b2" aria-hidden />
+      <div className="blob b3" aria-hidden />
+      <div className="pop mx-auto mt-6 max-w-sm panel p-7">
+      <h1 className="text-3xl font-extrabold">Create your account</h1>
       <p className="mt-1 text-sm text-slate-500">
         Free. Any email works, and there is nothing to set up. Your parcels stay private to you.
       </p>
@@ -36,7 +40,7 @@ export default async function SignupPage({
           <span className="mb-1 block text-slate-600">Password (8+ characters)</span>
           <input name="password" type="password" required minLength={8} autoComplete="new-password" className={input} />
         </label>
-        <button className="w-full rounded-md bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700">
+        <button className="w-full btn-primary px-4 py-2 text-sm">
           Create account
         </button>
       </form>
@@ -45,5 +49,6 @@ export default async function SignupPage({
         <Link href="/login" className="text-teal-700 underline">Log in</Link>
       </p>
     </div>
+    </>
   );
 }

@@ -6,15 +6,17 @@ function Card({
   subtitle,
   children,
   className = "",
+  d = 0,
 }: {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
   className?: string;
+  d?: number;
 }) {
   return (
-    <section className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
-      <h2 className="font-semibold text-slate-900">{title}</h2>
+    <section className={`panel panel-hover reveal p-5 ${className}`} style={{ "--d": d } as React.CSSProperties}>
+      <h2 className="font-display text-lg font-bold text-slate-900">{title}</h2>
       {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
       <div className="mt-4">{children}</div>
     </section>
@@ -42,7 +44,7 @@ function DonutChart({ stats }: { stats: Stats }) {
     <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
       <svg viewBox="0 0 200 200" className="h-44 w-44 shrink-0 -rotate-90" role="img" aria-label="Parcels by status">
         <circle cx="100" cy="100" r={R} fill="none" stroke="var(--chart-grid)" strokeWidth={STROKE} />
-        {slices.map((s) => {
+        {slices.map((s, si) => {
           const len = (s.n / stats.total) * C;
           const dash = slices.length === 1 ? len : Math.max(len - GAP, 0.5);
           return (
@@ -56,7 +58,8 @@ function DonutChart({ stats }: { stats: Stats }) {
                 strokeWidth={STROKE}
                 strokeDasharray={`${dash} ${C - dash}`}
                 strokeDashoffset={-s.offset}
-                className="cursor-pointer transition-opacity hover:opacity-80"
+                className="sweep cursor-pointer transition-opacity hover:opacity-80"
+                style={{ "--i": si } as React.CSSProperties}
               >
                 <title>{`${s.label}: ${s.n} (${pct(s.n, stats.total)})`}</title>
               </circle>
@@ -98,13 +101,13 @@ function CourierBars({ stats }: { stats: Stats }) {
   const max = Math.max(1, ...stats.byCourier.map((c) => c.total));
   return (
     <div className="space-y-3">
-      {stats.byCourier.map((c) => {
+      {stats.byCourier.map((c, ci) => {
         const parts = GROUPS.filter((g) => c.groups[g.key] > 0);
         return (
           <div key={c.key} className="flex items-center gap-3">
             <div className="w-32 shrink-0 text-sm text-slate-700">{c.name}</div>
             <div className="flex h-6 flex-1 items-center gap-2">
-              <div className="flex h-6 gap-[2px]" style={{ width: `${(c.total / max) * 88}%` }}>
+              <div className="grow-x flex h-6 gap-[2px]" style={{ width: `${(c.total / max) * 88}%`, "--i": ci } as React.CSSProperties}>
                 {parts.map((g, i) => (
                   <Link
                     key={g.key}
@@ -167,8 +170,8 @@ function DispatchColumns({ stats }: { stats: Stats }) {
             >
               {show && <span className="mb-0.5 text-xs font-semibold text-slate-700">{d.count}</span>}
               <div
-                className="w-full max-w-6 rounded-t bg-[var(--g-transit)] transition-opacity group-hover:opacity-75"
-                style={{ height: h }}
+                className="grow-y w-full max-w-6 rounded-t bg-[linear-gradient(180deg,#38bdf8,var(--g-transit))] transition-opacity group-hover:opacity-75"
+                style={{ height: h, "--i": i } as React.CSSProperties}
               />
             </div>
           );
@@ -198,8 +201,8 @@ function AgingBars({ stats }: { stats: Stats }) {
           <div className="w-16 shrink-0 text-sm text-slate-600">{a.label}</div>
           <div className="flex flex-1 items-center gap-2">
             <div
-              className="h-5 rounded-r"
-              style={{ width: `${(a.count / max) * 85}%`, minWidth: a.count ? 4 : 0, background: AGING_COLORS[i] }}
+              className="grow-x h-5 rounded-r"
+              style={{ width: `${(a.count / max) * 85}%`, minWidth: a.count ? 4 : 0, background: AGING_COLORS[i], "--i": i } as React.CSSProperties}
             />
             <span className="text-sm font-semibold text-slate-900">{a.count}</span>
           </div>
@@ -213,7 +216,7 @@ function AgingBars({ stats }: { stats: Stats }) {
 
 function TableView({ stats }: { stats: Stats }) {
   return (
-    <details className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm shadow-sm">
+    <details className="panel px-5 py-3 text-sm">
       <summary className="cursor-pointer font-medium text-slate-700">View chart numbers as a table</summary>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-left">
@@ -248,21 +251,22 @@ export function DashboardCharts({ stats }: { stats: Stats }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-5">
-        <Card title="Where your parcels are" subtitle="Click a slice to filter the list" className="lg:col-span-2">
+        <Card title="Where your parcels are" subtitle="Click a slice to filter the list" className="lg:col-span-2" d={4}>
           <DonutChart stats={stats} />
         </Card>
-        <Card title="Parcels by courier" subtitle="Split by current state" className="lg:col-span-3">
+        <Card title="Parcels by courier" subtitle="Split by current state" className="lg:col-span-3" d={5}>
           <CourierBars stats={stats} />
         </Card>
       </div>
       <div className="grid gap-4 lg:grid-cols-5">
-        <Card title="Dispatched per day" subtitle="Last 14 days" className="lg:col-span-3">
+        <Card title="Dispatched per day" subtitle="Last 14 days" className="lg:col-span-3" d={6}>
           <DispatchColumns stats={stats} />
         </Card>
         <Card
           title="How long open parcels have waited"
           subtitle={`${stats.openCount} parcel${stats.openCount === 1 ? "" : "s"} not yet delivered`}
           className="lg:col-span-2"
+          d={7}
         >
           <AgingBars stats={stats} />
         </Card>
